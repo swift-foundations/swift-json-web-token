@@ -1,6 +1,6 @@
 # swift-jwt
 
-[![CI](https://github.com/coenttb/swift-jwt/workflows/CI/badge.svg)](https://github.com/coenttb/swift-jwt/actions/workflows/ci.yml)
+[![CI](https://github.com/swift-foundations/swift-json-web-token/workflows/CI/badge.svg)](https://github.com/swift-foundations/swift-json-web-token/actions/workflows/ci.yml)
 ![Development Status](https://img.shields.io/badge/status-active--development-blue.svg)
 
 A Swift package for creating, signing, and verifying JSON Web Tokens (JWTs) using Apple's Crypto framework.
@@ -26,7 +26,7 @@ Add this package to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/coenttb/swift-jwt.git", from: "0.1.0")
+    .package(url: "https://github.com/swift-foundations/swift-json-web-token.git", from: "0.0.2")
 ]
 ```
 
