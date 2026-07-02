@@ -1,0 +1,9 @@
+# .github/metadata.yaml
+description: "JSON Web Token (RFC 7519) creation, signing, and verification for Swift."
+topics:
+  - foundations
+  - jwt
+  - authentication
+homepage: "https://swift-institute.org"
+readme:
+  family: E
