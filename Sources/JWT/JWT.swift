@@ -1,223 +1,175 @@
+// ===----------------------------------------------------------------------===//
 //
-//  File.swift
-//  swift-web
+// This source file is part of the swift-json-web-token open source project
 //
-//  Created by Coen ten Thije Boonkkamp on 28/07/2025.
+// Copyright (c) 2026 Coen ten Thije Boonkkamp
+// Licensed under Apache License v2.0
 //
+// See LICENSE for license information
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// ===----------------------------------------------------------------------===//
 
 import Foundation
-import RFC_7519
 
-public typealias JWT = RFC_7519.JWT
+/// A JSON Web Token (JWT) as defined by RFC 7519.
+///
+/// A JWT carries a set of claims between two parties. In its compact
+/// serialization it consists of three Base64URL-encoded parts separated by
+/// periods: `header.payload.signature`.
+///
+/// This is the *typed* claims layer. The header and payload are decoded into
+/// the strongly-typed ``JWT/Header`` and ``JWT/Payload`` values; the underlying
+/// RFC 7519 structural byte layer lives upstream in `RFC_7519`.
+///
+/// ```swift
+/// let jwt = try JWT.hmacSHA256(
+///     issuer: "example.com",
+///     subject: "user123",
+///     secretKey: "your-secret-key"
+/// )
+/// let token = try jwt.compactSerialization()
+/// ```
+public struct JWT: Sendable {
+    /// The decoded, strongly-typed JWT header.
+    public let header: Header
 
-extension JWT {
-  /// Convenience accessor for the full JWT string representation
-  public var token: String {
-    get throws {
-      try self.compactSerialization()
-    }
-  }
-}
+    /// The decoded, strongly-typed JWT payload (claims).
+    public let payload: Payload
 
-extension JWT.Header {
-  /// The algorithm used to sign the JWT (same as `alg`)
-  public var algorithm: String {
-    alg
-  }
+    /// The raw signature bytes.
+    public let signature: Data
 
-  /// The type of token (same as `typ`)
-  public var type: String? {
-    typ
-  }
+    /// Original Base64URL-encoded header, preserved from parsing so that the
+    /// signing input can be reproduced byte-for-byte during verification.
+    let headerBase64URL: String?
 
-  /// The content type (same as `cty`)
-  public var contentType: String? {
-    cty
-  }
+    /// Original Base64URL-encoded payload, preserved from parsing.
+    let payloadBase64URL: String?
 
-  /// The key ID (same as `kid`)
-  public var keyId: String? {
-    kid
-  }
-}
-
-extension JWT.Payload {
-  /// The issuer of the JWT (same as `iss`)
-  public var issuer: String? {
-    iss
-  }
-
-  /// The subject of the JWT (same as `sub`)
-  public var subject: String? {
-    sub
-  }
-
-  /// The audience of the JWT (same as `aud`)
-  public var audience: Audience? {
-    aud
-  }
-
-  /// The expiration time (same as `exp`)
-  public var expirationTime: Date? {
-    exp
-  }
-
-  /// The not before time (same as `nbf`)
-  public var notBeforeTime: Date? {
-    nbf
-  }
-
-  /// The issued at time (same as `iat`)
-  public var issuedAtTime: Date? {
-    iat
-  }
-
-  /// The JWT ID (same as `jti`)
-  public var id: String? {
-    jti
-  }
-
-  // Convenience computed properties
-
-  /// Check if the token is expired
-  public var isExpired: Bool {
-    guard let expirationTime = exp else { return false }
-    return expirationTime < Date()
-  }
-
-  /// Check if the token is not yet valid
-  public var isNotYetValid: Bool {
-    guard let notBefore = nbf else { return false }
-    return notBefore > Date()
-  }
-
-  /// Check if the token is currently valid (not expired and not before nbf)
-  public var isCurrentlyValid: Bool {
-    !isExpired && !isNotYetValid
-  }
-
-  /// Get the remaining time until expiration in seconds
-  public var timeUntilExpiration: TimeInterval? {
-    guard let expirationTime = exp else { return nil }
-    return expirationTime.timeIntervalSinceNow
-  }
-
-  /// Get a single audience value (useful when there's only one)
-  public var singleAudience: String? {
-    switch aud {
-    case .single(let value):
-      return value
-    case .multiple(let values):
-      return values.first
-    case .none:
-      return nil
-    }
-  }
-
-  /// Get all audience values as an array
-  public var audienceValues: [String] {
-    aud?.values ?? []
-  }
-}
-
-extension JWT.Payload.Audience {
-  /// Get all audience values as an array
-  public var values: [String] {
-    switch self {
-    case .single(let value):
-      return [value]
-    case .multiple(let values):
-      return values
-    }
-  }
-
-  /// Check if a specific audience is included
-  public func contains(_ audience: String) -> Bool {
-    values.contains(audience)
-  }
-}
-
-extension JWT.Payload {
-  /// Get a claim value with a more intuitive name
-  public func claim<T>(_ key: String, as type: T.Type = T.self) -> T? {
-    additionalClaim(key, as: type)
-  }
-
-  /// Get a claim value or a default
-  public func claim<T>(_ key: String, default defaultValue: T) -> T {
-    additionalClaim(key, as: T.self) ?? defaultValue
-  }
-
-  /// Check if a claim exists
-  public func hasClaim(_ key: String) -> Bool {
-    // Check standard claims first
-    switch key {
-    case "iss": return iss != nil
-    case "sub": return sub != nil
-    case "aud": return aud != nil
-    case "exp": return exp != nil
-    case "nbf": return nbf != nil
-    case "iat": return iat != nil
-    case "jti": return jti != nil
-    default:
-      // For additional claims, we need to check if the claim exists
-      // Since additionalClaim returns nil for non-existent claims with proper types
-      return additionalClaim(key, as: String.self) != nil
-        || additionalClaim(key, as: Int.self) != nil || additionalClaim(key, as: Bool.self) != nil
-        || additionalClaim(key, as: Double.self) != nil
-        || additionalClaim(key, as: [String].self) != nil
-        || additionalClaim(key, as: [String: Any].self) != nil
-    }
-  }
-
-  /// Get all standard claim keys
-  public var standardClaimKeys: [String] {
-    var keys: [String] = []
-    if iss != nil { keys.append("iss") }
-    if sub != nil { keys.append("sub") }
-    if aud != nil { keys.append("aud") }
-    if exp != nil { keys.append("exp") }
-    if nbf != nil { keys.append("nbf") }
-    if iat != nil { keys.append("iat") }
-    if jti != nil { keys.append("jti") }
-    return keys
-  }
-}
-
-extension JWT {
-  /// Quick check if a token is valid (signature + not expired)
-  public func isValid(with key: VerificationKey) -> Bool {
-    do {
-      return try verifyAndValidate(with: key)
-    } catch {
-      return false
-    }
-  }
-
-  /// Get validation errors if any
-  public func validationErrors(with key: VerificationKey) -> [String] {
-    var errors: [String] = []
-
-    // Check signature
-    do {
-      let signatureValid = try verify(with: key)
-      if !signatureValid {
-        errors.append("Invalid signature")
-      }
-    } catch {
-      errors.append("Signature verification failed: \(error)")
+    /// Creates a JWT from its typed components.
+    ///
+    /// - Parameters:
+    ///   - header: The JWT header.
+    ///   - payload: The JWT payload (claims).
+    ///   - signature: The signature bytes.
+    public init(header: Header, payload: Payload, signature: Data) {
+        self.header = header
+        self.payload = payload
+        self.signature = signature
+        self.headerBase64URL = nil
+        self.payloadBase64URL = nil
     }
 
-    // Check expiration
-    if payload.isExpired {
-      errors.append("Token is expired")
+    /// Creates a JWT from its typed components, preserving the original
+    /// Base64URL-encoded header and payload strings.
+    init(
+        header: Header,
+        payload: Payload,
+        signature: Data,
+        headerBase64URL: String,
+        payloadBase64URL: String
+    ) {
+        self.header = header
+        self.payload = payload
+        self.signature = signature
+        self.headerBase64URL = headerBase64URL
+        self.payloadBase64URL = payloadBase64URL
     }
 
-    // Check not before
-    if payload.isNotYetValid {
-      errors.append("Token is not yet valid")
+    /// Parses a JWT from its compact serialization (`header.payload.signature`).
+    ///
+    /// - Parameter token: The JWT string.
+    /// - Returns: The parsed, typed JWT.
+    /// - Throws: ``RFC_7519/Error`` on malformed input.
+    public static func parse(from token: String) throws(RFC_7519.Error) -> JWT {
+        let components = token.components(separatedBy: ".")
+        guard components.count == 3 else {
+            throw .invalidFormat("JWT must have exactly 3 parts separated by dots")
+        }
+
+        guard let headerData = Data(base64URLEncoded: components[0]) else {
+            throw .invalidFormat("Invalid base64url encoding in header")
+        }
+        let header: Header
+        do {
+            header = try JSONDecoder().decode(Header.self, from: headerData)
+        } catch {
+            throw .invalidFormat("Invalid JSON in header: \(error)")
+        }
+
+        guard let payloadData = Data(base64URLEncoded: components[1]) else {
+            throw .invalidFormat("Invalid base64url encoding in payload")
+        }
+        let payload: Payload
+        do {
+            payload = try JSONDecoder().decode(Payload.self, from: payloadData)
+        } catch {
+            throw .invalidFormat("Invalid JSON in payload: \(error)")
+        }
+
+        guard let signature = Data(base64URLEncoded: components[2]) else {
+            throw .invalidFormat("Invalid base64url encoding in signature")
+        }
+
+        return JWT(
+            header: header,
+            payload: payload,
+            signature: signature,
+            headerBase64URL: components[0],
+            payloadBase64URL: components[1]
+        )
     }
 
-    return errors
-  }
+    /// Serializes the JWT to its compact form (`header.payload.signature`).
+    ///
+    /// - Returns: The compact JWT string.
+    /// - Throws: ``RFC_7519/Error`` if the header or payload cannot be encoded.
+    public func compactSerialization() throws(RFC_7519.Error) -> String {
+        let headerBase64: String
+        let payloadBase64: String
+
+        if let originalHeader = headerBase64URL, let originalPayload = payloadBase64URL {
+            headerBase64 = originalHeader
+            payloadBase64 = originalPayload
+        } else {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .sortedKeys
+            do {
+                headerBase64 = try encoder.encode(header).base64URLEncodedString()
+                payloadBase64 = try encoder.encode(payload).base64URLEncodedString()
+            } catch {
+                throw .encodingFailed("Failed to encode JWT: \(error)")
+            }
+        }
+
+        let signatureBase64 = signature.base64URLEncodedString()
+        return "\(headerBase64).\(payloadBase64).\(signatureBase64)"
+    }
+
+    /// The signing input (`BASE64URL(header).BASE64URL(payload)`) as ASCII bytes.
+    ///
+    /// Per RFC 7515 this is the exact byte sequence that is signed and verified.
+    ///
+    /// - Returns: The signing input bytes.
+    /// - Throws: ``RFC_7519/Error`` if the header or payload cannot be encoded.
+    public func signingInput() throws(RFC_7519.Error) -> Data {
+        if let originalHeader = headerBase64URL, let originalPayload = payloadBase64URL {
+            return Data("\(originalHeader).\(originalPayload)".utf8)
+        }
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let headerBase64: String
+        let payloadBase64: String
+        do {
+            headerBase64 = try encoder.encode(header).base64URLEncodedString()
+            payloadBase64 = try encoder.encode(payload).base64URLEncodedString()
+        } catch {
+            throw .encodingFailed("Failed to encode JWT signing input: \(error)")
+        }
+
+        return Data("\(headerBase64).\(payloadBase64)".utf8)
+    }
 }
