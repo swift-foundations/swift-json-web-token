@@ -1,6 +1,5 @@
-// swift-tools-version:5.9
+// swift-tools-version: 6.3.1
 
-import Foundation
 import PackageDescription
 
 extension String {
@@ -13,21 +12,24 @@ extension Target.Dependency {
 
 extension Target.Dependency {
     static var crypto: Self { .product(name: "Crypto", package: "swift-crypto") }
-    static var rfc7519: Self { .product(name: "RFC_7519", package: "swift-rfc-7519") }
+    static var rfc7519: Self { .product(name: "RFC 7519", package: "swift-rfc-7519") }
 }
 
 let package = Package(
     name: "swift-jwt",
     platforms: [
-        .macOS(.v13),
-        .iOS(.v16)
+        .macOS(.v26),
+        .iOS(.v26),
+        .tvOS(.v26),
+        .watchOS(.v26),
+        .visionOS(.v26)
     ],
     products: [
         .library(name: .jwt, targets: [.jwt]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-crypto", from: "3.0.0"),
-        .package(url: "https://github.com/swift-web-standards/swift-rfc-7519.git", from: "0.0.1")
+        .package(url: "https://github.com/swift-ietf/swift-rfc-7519.git", branch: "main")
     ],
     targets: [
         .target(
@@ -44,7 +46,7 @@ let package = Package(
             ]
         )
     ],
-    swiftLanguageModes: [.v5]
+    swiftLanguageModes: [.v6]
 )
 
 extension String { var tests: Self { self + " Tests" } }
