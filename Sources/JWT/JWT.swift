@@ -173,3 +173,17 @@ public struct JWT: Sendable {
         return Data("\(headerBase64).\(payloadBase64)".utf8)
     }
 }
+
+// Memberwise `Equatable`/`Hashable` synthesis. All stored properties conform:
+// `Header` and `Payload` are `Hashable`, `signature` is `Data`, and both
+// preserved-Base64URL fields are `String?`. Synthesis must live in-module
+// because the two `internal` Base64URL properties are not visible across the
+// module boundary, which would otherwise block cross-module synthesis.
+//
+// The preserved Base64URL strings are intentionally included in equality: they
+// are verification-significant (they define the exact signing input reproduced
+// during verification), so two tokens that would serialize — and therefore
+// verify — differently must never compare equal.
+extension JWT: Equatable {}
+
+extension JWT: Hashable {}
