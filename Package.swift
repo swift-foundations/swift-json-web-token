@@ -28,7 +28,7 @@ let package = Package(
         .library(name: .jwt, targets: [.jwt]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-crypto", from: "3.0.0"),
+        .package(url: "https://github.com/apple/swift-crypto", "3.0.0"..<"5.0.0"),
         .package(url: "https://github.com/swift-ietf/swift-rfc-7519.git", branch: "main")
     ],
     targets: [
