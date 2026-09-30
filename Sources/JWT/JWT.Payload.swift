@@ -48,7 +48,7 @@ extension JWT {
             currentTime: Date = Date(),
             clockSkew: TimeInterval = 60
         ) throws(RFC_7519.Error) {
-            if let exp, currentTime.timeIntervalSince1970 > exp.timeIntervalSince1970 + clockSkew {
+            if let exp, currentTime.timeIntervalSince1970 >= exp.timeIntervalSince1970 + clockSkew {
                 throw .tokenExpired("Token expired at \(exp)")
             }
             if let nbf, currentTime.timeIntervalSince1970 < nbf.timeIntervalSince1970 - clockSkew {
